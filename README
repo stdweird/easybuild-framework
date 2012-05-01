@@ -50,8 +50,8 @@ To see EasyBuild in action, build HPL with the robot feature of EasyBuild, by
 running the following (bash/sh syntax):
 
     export EBHOME="<path to where you unpacked EasyBuild>"
-    ${EBHOME}/easybuild.sh --robot ${EBHOME}/easybuild/easyconfigs \
-        ${EBHOME}/easybuild/easyconfigs/h/HPL/HPL-2.0-goalf-1.1.0.eb
+    export CFGS="$EBHOME/easybuild/easyconfigs"
+    ${EBHOME}/easybuild.sh --robot ${CFGS} ${CFGS}/h/HPL/HPL-2.0-goalf-1.1.0.eb
 
 This will build and install HPL, after building and installing a GCC-based
 compiler toolkit and all of its dependencies using the default EasyBuild
