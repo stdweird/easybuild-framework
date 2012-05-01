@@ -71,8 +71,8 @@ as well as the <a href="http://modules.sourceforge.net/">environment-modules</a>
 running the following (bash/sh syntax):</p>
 
 <pre><code>export EBHOME="&lt;path to where you unpacked EasyBuild&gt;"
-export EASYCONFIGS="$EBHOME/easybuild/easyconfigs"
-${EBHOME}/easybuild.sh --robot ${EASYCONFIGS} ${EASYCONFIGS}/h/HPL/HPL-2.0-goalf-1.1.0.eb
+export CFGS="$EBHOME/easybuild/easyconfigs"
+${EBHOME}/easybuild.sh --robot ${CFGS} ${CFGS}/h/HPL/HPL-2.0-goalf-1.1.0.eb
 </code></pre>
 
 <p>This will build and install HPL, after building and installing a GCC-based
