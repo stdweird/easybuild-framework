@@ -51,6 +51,9 @@ from easybuild.tools.module_generator import ModuleGenerator
 from easybuild.tools.modules import Modules, get_software_root
 from easybuild.tools.systemtools import get_core_count
 
+class EasyBlock(Application):
+    """Simple rename"""
+    pass
 
 class Application:
     """
