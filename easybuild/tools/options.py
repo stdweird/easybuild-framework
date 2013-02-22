@@ -101,6 +101,8 @@ class EasyBuildOptions(GeneralOption):
                  )
 
         opts = OrderedDict({
+                             'software':("Search and build with software (name and version)",
+                                          None, 'extend', None, {'metavar':'NAME,VERSION'}),
                              'software-name':("Search and build software with name",
                                               None, 'store', None, {'metavar':'NAME'}),
                              'software-version':("Search and build software with version",
@@ -116,8 +118,13 @@ class EasyBuildOptions(GeneralOption):
                                       None, 'append', None, {'metavar':'VAR=VALUE[,VALUE]'}),
                              })
 
+        ignore = ['software-name',  # doesn't make sense, would also require to change eg description, homepage ...
+                  'software',  # if we don't allow software-name, then also no software
+                  ]
         longopts = opts.keys()
         for longopt in longopts:
+            if longopt in ignore:
+                continue
             hlp = opts[longopt][0]
             hlp = "Try to %s (USE WITH CARE!)" % (hlp[0].lower() + hlp[1:])
             opts["try-%s" % longopt] = (hlp,) + opts[longopt][1:]
@@ -226,15 +233,19 @@ class EasyBuildOptions(GeneralOption):
         """Additional validation of options"""
         stop_msg = []
 
-        if self.options.toolchain and not len(self.options.toolchain) == 2:
-            stop_msg.append('--toolchain requires NAME,VERSION (given %s)' % (','.join(self.options.toolchain)))
-        if self.options.try_toolchain and not len(self.options.try_toolchain) == 2:
-            stop_msg.append('--try-toolchain requires NAME,VERSION (given %s)' % (','.join(self.options.try_toolchain)))
+        for opt_dest in ['software', 'toolchain', 'try_toolchain']:
+            opt_value = getattr(self.options, opt_dest, None)
+            if opt_value and not len(opt_value) == 2:
+                stop_msg.append('--%s requires NAME,VERSION (got %s)' %
+                                (self.processed_options[opt_dest][self.PROCESSED_OPTIONS_PROPERTIES.index('opt_name')],
+                                 ','.join(opt_value))
+                                )
 
         if len(stop_msg) > 0:
             indent = " "*2
             stop_msg = ['%s%s' % (indent, x) for x in stop_msg]
-            stop_msg.insert(0, 'ERROR: Found %s problems validating the options:' % len(stop_msg))
+            stop_msg.insert(0, 'ERROR: Found %s problem%s validating the options:' %
+                            (len(stop_msg), ['', 's'][len(stop_msg) > 1]))
             print "\n".join(stop_msg)
             sys.exit(1)
 
