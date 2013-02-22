@@ -550,7 +550,6 @@ def process_software_build_specs(options):
 
     # try options: enable optional generation of easyconfig
     try_opts_map = {
-                    'name': options.try_software_name,
                     'version': options.try_software_version,
                     'toolchain_name': options.try_toolchain_name,
                     'toolchain_version': options.try_toolchain_version,
@@ -570,19 +569,18 @@ def process_software_build_specs(options):
             try_to_generate = True
 
     # process --toolchain --try-toolchain (sanity check done in tools.options)
-    tc = options.toolchain or options.try_toolchain
+    tc = options.try_toolchain or options.toolchain
     if tc:
-        if options.toolchain and options.try_toolchain:
-            print_warning("Ignoring --try-toolchain, only using --toolchain specification.")
+        if options.try_toolchain and options.toolchain:
+            print_warning("Ignoring --toolchain, only using --try_toolchain specification.")
         elif options.try_toolchain:
-            try_to_generate = True
+            try_to_generate = True  # try always pre
         buildopts.update({'toolchain_name': tc[0],
                           'toolchain_version': tc[1],
                           })
 
     # process --amend and --try-amend
     if options.amend or options.try_amend:
-
         amends = []
         if options.amend:
             amends += options.amend
