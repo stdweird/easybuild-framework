@@ -1,4 +1,4 @@
-##
+# #
 # Copyright 2009-2013 Ghent University
 #
 # This file is part of EasyBuild,
@@ -21,7 +21,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
-##
+# #
 """
 Set of file tools.
 
@@ -43,6 +43,7 @@ import tempfile
 import time
 import urllib
 from vsc import fancylogger
+from vsc.utils.run import RunLoopLog, RunQALog
 
 import easybuild.tools.environment as env
 from easybuild.tools.asyncprocess import Popen, PIPE, STDOUT
@@ -144,16 +145,16 @@ def extract_file(fn, dest, cmd=None, extra_options=None, overwrite=False):
         _log.error("Can't extract file %s: no such file" % fn)
 
     if not os.path.isdir(dest):
-        ## try to create it
+        # # try to create it
         try:
             os.makedirs(dest)
         except OSError, err:
             _log.exception("Can't extract file %s: directory %s can't be created: %err " % (fn, dest, err))
 
-    ## use absolute pathnames from now on
+    # # use absolute pathnames from now on
     absDest = os.path.abspath(dest)
 
-    ## change working directory
+    # # change working directory
     try:
         _log.debug("Unpacking %s in directory %s." % (fn, absDest))
         os.chdir(absDest)
@@ -174,6 +175,7 @@ def extract_file(fn, dest, cmd=None, extra_options=None, overwrite=False):
     run_cmd(cmd, simple=True)
 
     return find_base_dir()
+
 
 def download_file(filename, url, path):
 
@@ -219,7 +221,7 @@ def find_base_dir():
       expect only the first one to give the correct path
     """
     def get_local_dirs_purged():
-        ## e.g. always purge the log directory
+        # # e.g. always purge the log directory
         ignoreDirs = ["easybuild"]
 
         lst = os.listdir(os.getcwd())
@@ -314,7 +316,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
         _log.error("Can't patch directory %s: no such directory" % dest)
         return
 
-    ## copy missing files
+    # # copy missing files
     if copy:
         try:
             shutil.copy2(patchFile, dest)
@@ -324,7 +326,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
             _log.error("Failed to copy %s to dir %s: %s" % (patchFile, dest, err))
             return
 
-    ## use absolute paths
+    # # use absolute paths
     apatch = os.path.abspath(patchFile)
     adest = os.path.abspath(dest)
 
@@ -361,7 +363,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
 
         p = None
         for line in plusLines:
-            ## locate file by stripping of /
+            # # locate file by stripping of /
             f = line.group('file')
             tf2 = f.split('/')
             n = len(tf2)
@@ -377,8 +379,8 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
             else:
                 _log.debug('No match found for %s, trying next +++ line of patch file...' % f)
 
-        if p == None: # p can also be zero, so don't use "not p"
-            ## no match
+        if p == None:  # p can also be zero, so don't use "not p"
+            # # no match
             _log.error("Can't determine patch level for patch %s from directory %s" % (patchFile, adest))
         else:
             _log.debug("Guessed patch level %d for patch %s" % (p, patchFile))
@@ -394,6 +396,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
         return
 
     return result
+
 
 def adjust_cmd(func):
     """Make adjustments to given command, if required."""
@@ -416,6 +419,7 @@ def adjust_cmd(func):
 
     return inner
 
+
 @adjust_cmd
 def run_cmd(cmd, log_ok=True, log_all=False, simple=False, inp=None, regexp=True, log_output=False, path=None):
     """
@@ -437,7 +441,7 @@ def run_cmd(cmd, log_ok=True, log_all=False, simple=False, inp=None, regexp=True
     except:
         _log.info("running cmd %s in non-existing directory, might fail!" % cmd)
 
-    ## Log command output
+    # # Log command output
     if log_output:
         runLog = tempfile.NamedTemporaryFile(suffix='.log', prefix='easybuild-run_cmd-')
         _log.debug('run_cmd: Command output will be logged to %s' % runLog.name)
@@ -473,7 +477,7 @@ def run_cmd(cmd, log_ok=True, log_all=False, simple=False, inp=None, regexp=True
     # not needed anymore. subprocess does this correct?
     # ec=os.WEXITSTATUS(ec)
 
-    ## Command log output
+    # # Command log output
     if log_output:
         runLog.close()
 
@@ -517,7 +521,7 @@ def run_cmd_qa(cmd, qa, no_qa=None, log_ok=True, log_all=False, simple=False, re
     def process_QA(q, a):
         splitq = [escape_special(x) for x in regSplit.split(q)]
         regQtxt = split.join(splitq) + split.rstrip('+') + "*$"
-        ## add optional split at the end
+        # # add optional split at the end
         if not a.endswith('\n'):
             a += '\n'
         regQ = re.compile(r"" + regQtxt)
@@ -552,7 +556,7 @@ def run_cmd_qa(cmd, qa, no_qa=None, log_ok=True, log_all=False, simple=False, re
     # Part 2: Run the command and answer questions
     # - this needs asynchronous stdout
 
-    ## Log command output
+    # # Log command output
     if log_all:
         try:
             runLog = tempfile.NamedTemporaryFile(suffix='.log', prefix='easybuild-cmdqa-')
@@ -716,9 +720,9 @@ def modify_env(old, new):
     oldKeys = old.keys()
     newKeys = new.keys()
     for key in newKeys:
-        ## set them all. no smart checking for changed/identical values
+        # # set them all. no smart checking for changed/identical values
         if key in oldKeys:
-            ## hmm, smart checking with debug logging
+            # # hmm, smart checking with debug logging
             if not new[key] == old[key]:
                 _log.debug("Key in new environment found that is different from old one: %s (%s)" % (key, new[key]))
                 env.setvar(key, new[key])
@@ -737,7 +741,7 @@ def convert_name(name, upper=False):
     """
     Converts name so it can be used as variable name
     """
-    ## no regexps
+    # # no regexps
     charmap = {
          '+':'plus',
          '-':'min'
@@ -851,9 +855,9 @@ def adjust_permissions(name, permissionBits, add=True, onlyfiles=False, onlydirs
     max_fail_ratio = 0.5
     if fail_ratio > max_fail_ratio:
         _log.error("%.2f%% of permissions/owner operations failed (more than %.2f%%), something must be wrong..." % \
-                  (100*fail_ratio, 100*max_fail_ratio))
+                  (100 * fail_ratio, 100 * max_fail_ratio))
     elif fail_cnt > 0:
-        _log.debug("%.2f%% of permissions/owner operations failed, ignoring that..." % (100*fail_ratio))
+        _log.debug("%.2f%% of permissions/owner operations failed, ignoring that..." % (100 * fail_ratio))
 
 
 def patch_perl_script_autoflush(path):
@@ -880,7 +884,7 @@ def mkdir(directory, parents=False):
     """
     Create a directory
     Directory is the path to create
-    
+
     When parents is True then no error if directory already exists
     and make parent directories as needed (cfr. mkdir -p)
     """
@@ -893,7 +897,7 @@ def mkdir(directory, parents=False):
                 _log.debug("Directory %s already exitst" % directory)
             else:
                 _log.error("Failed to create directory %s: %s" % (directory, err))
-    else:#not parrents
+    else:  # not parrents
         try:
             os.mkdir(directory)
             _log.debug("Succesfully created directory %s" % directory)
@@ -907,7 +911,7 @@ def rmtree2(path, n=3):
     """Wrapper around shutil.rmtree to make it more robust when used on NFS mounted file systems."""
 
     ok = False
-    for i in range(0,n):
+    for i in range(0, n):
         try:
             shutil.rmtree(path)
             ok = True
@@ -924,7 +928,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
     """
     Copied from Lib/shutil.py in python 2.7, since we need this to work for python2.4 aswell
     and this code can be improved...
-    
+
     Recursively copy a directory tree using copy2().
 
     The destination directory must not already exist.
@@ -953,7 +957,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
     class Error(EnvironmentError):
         pass
     try:
-        WindowsError #@UndefinedVariable
+        WindowsError  # @UndefinedVariable
     except NameError:
         WindowsError = None
 
@@ -1008,7 +1012,7 @@ def encode_string(name):
     * http://celldesigner.org/help/CDH_Species_01.html
     * http://research.cs.berkeley.edu/project/sbp/darcsrepo-no-longer-updated/src/edu/berkeley/sbp/misc/ReflectiveWalker.java
     and can be extended freely as per ISO/IEC 10646:2012 / Unicode 6.1 names:
-    * http://www.unicode.org/versions/Unicode6.1.0/ 
+    * http://www.unicode.org/versions/Unicode6.1.0/
     For readability of >2 words, it is suggested to use _CamelCase_ style.
     So, yes, '_GreekSmallLetterEtaWithPsiliAndOxia_' *could* indeed be a fully
     valid software name; software "electron" in the original spelling anyone? ;-)
