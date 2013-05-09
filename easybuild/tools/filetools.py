@@ -42,8 +42,9 @@ import subprocess
 import tempfile
 import time
 import urllib
+
 from vsc import fancylogger
-from vsc.utils.run import RunLoopLog, RunQALog
+from vsc.utils import run
 
 import easybuild.tools.environment as env
 from easybuild.tools.asyncprocess import Popen, PIPE, STDOUT
@@ -145,16 +146,16 @@ def extract_file(fn, dest, cmd=None, extra_options=None, overwrite=False):
         _log.error("Can't extract file %s: no such file" % fn)
 
     if not os.path.isdir(dest):
-        # # try to create it
+        # try to create it
         try:
             os.makedirs(dest)
         except OSError, err:
             _log.exception("Can't extract file %s: directory %s can't be created: %err " % (fn, dest, err))
 
-    # # use absolute pathnames from now on
+    # use absolute pathnames from now on
     absDest = os.path.abspath(dest)
 
-    # # change working directory
+    # change working directory
     try:
         _log.debug("Unpacking %s in directory %s." % (fn, absDest))
         os.chdir(absDest)
@@ -221,7 +222,7 @@ def find_base_dir():
       expect only the first one to give the correct path
     """
     def get_local_dirs_purged():
-        # # e.g. always purge the log directory
+        # e.g. always purge the log directory
         ignoreDirs = ["easybuild"]
 
         lst = os.listdir(os.getcwd())
@@ -316,7 +317,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
         _log.error("Can't patch directory %s: no such directory" % dest)
         return
 
-    # # copy missing files
+    # copy missing files
     if copy:
         try:
             shutil.copy2(patchFile, dest)
@@ -326,7 +327,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
             _log.error("Failed to copy %s to dir %s: %s" % (patchFile, dest, err))
             return
 
-    # # use absolute paths
+    # use absolute paths
     apatch = os.path.abspath(patchFile)
     adest = os.path.abspath(dest)
 
@@ -363,7 +364,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
 
         p = None
         for line in plusLines:
-            # # locate file by stripping of /
+            # locate file by stripping of /
             f = line.group('file')
             tf2 = f.split('/')
             n = len(tf2)
@@ -380,7 +381,7 @@ def apply_patch(patchFile, dest, fn=None, copy=False, level=None):
                 _log.debug('No match found for %s, trying next +++ line of patch file...' % f)
 
         if p == None:  # p can also be zero, so don't use "not p"
-            # # no match
+            # no match
             _log.error("Can't determine patch level for patch %s from directory %s" % (patchFile, adest))
         else:
             _log.debug("Guessed patch level %d for patch %s" % (p, patchFile))
@@ -441,7 +442,7 @@ def run_cmd(cmd, log_ok=True, log_all=False, simple=False, inp=None, regexp=True
     except:
         _log.info("running cmd %s in non-existing directory, might fail!" % cmd)
 
-    # # Log command output
+    # Log command output
     if log_output:
         runLog = tempfile.NamedTemporaryFile(suffix='.log', prefix='easybuild-run_cmd-')
         _log.debug('run_cmd: Command output will be logged to %s' % runLog.name)
@@ -477,7 +478,7 @@ def run_cmd(cmd, log_ok=True, log_all=False, simple=False, inp=None, regexp=True
     # not needed anymore. subprocess does this correct?
     # ec=os.WEXITSTATUS(ec)
 
-    # # Command log output
+    # Command log output
     if log_output:
         runLog.close()
 
@@ -521,7 +522,7 @@ def run_cmd_qa(cmd, qa, no_qa=None, log_ok=True, log_all=False, simple=False, re
     def process_QA(q, a):
         splitq = [escape_special(x) for x in regSplit.split(q)]
         regQtxt = split.join(splitq) + split.rstrip('+') + "*$"
-        # # add optional split at the end
+        # add optional split at the end
         if not a.endswith('\n'):
             a += '\n'
         regQ = re.compile(r"" + regQtxt)
@@ -556,7 +557,7 @@ def run_cmd_qa(cmd, qa, no_qa=None, log_ok=True, log_all=False, simple=False, re
     # Part 2: Run the command and answer questions
     # - this needs asynchronous stdout
 
-    # # Log command output
+    # Log command output
     if log_all:
         try:
             runLog = tempfile.NamedTemporaryFile(suffix='.log', prefix='easybuild-cmdqa-')
@@ -720,9 +721,9 @@ def modify_env(old, new):
     oldKeys = old.keys()
     newKeys = new.keys()
     for key in newKeys:
-        # # set them all. no smart checking for changed/identical values
+        # set them all. no smart checking for changed/identical values
         if key in oldKeys:
-            # # hmm, smart checking with debug logging
+            # hmm, smart checking with debug logging
             if not new[key] == old[key]:
                 _log.debug("Key in new environment found that is different from old one: %s (%s)" % (key, new[key]))
                 env.setvar(key, new[key])
@@ -741,7 +742,7 @@ def convert_name(name, upper=False):
     """
     Converts name so it can be used as variable name
     """
-    # # no regexps
+    # no regexps
     charmap = {
          '+':'plus',
          '-':'min'
