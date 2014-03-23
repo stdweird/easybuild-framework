@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2013 Ghent University
+# Copyright 2012-2014 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,41 +30,28 @@ Unit tests for module_generator.py.
 """
 
 import os
-import re
 import shutil
 import sys
 import tempfile
-from unittest import TestCase, TestLoader, main
+from test.framework.utilities import EnhancedTestCase, init_config
+from unittest import TestLoader, main
+from vsc.utils.fancylogger import setLogLevelDebug, logToScreen
 from vsc.utils.missing import get_subclasses
 
-import easybuild.tools.options as eboptions
 import easybuild.tools.module_generator
 from easybuild.framework.easyconfig.easyconfig import EasyConfig
-from easybuild.tools import config
 from easybuild.tools.module_generator import ModuleGenerator, det_full_module_name, is_valid_module_name
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from test.framework.utilities import find_full_path
 
 
-class ModuleGeneratorTest(TestCase):
+class ModuleGeneratorTest(EnhancedTestCase):
     """ testcase for ModuleGenerator """
-
-    # initialize configuration so config.get_modules_tool function works
-    eb_go = eboptions.parse_options()
-    config.init(eb_go.options, eb_go.get_options_by_section('config'))
-    del eb_go
-
-    def assertErrorRegex(self, error, regex, call, *args):
-        """ convenience method to match regex with the error message """
-        try:
-            call(*args)
-        except error, err:
-            self.assertTrue(re.search(regex, err.msg))
 
     def setUp(self):
         """ initialize ModuleGenerator with test Application """
-
+        super(ModuleGeneratorTest, self).setUp()
         # find .eb file
         eb_path = os.path.join(os.path.join(os.path.dirname(__file__), 'easyconfigs'), 'gzip-1.4.eb')
         eb_full_path = find_full_path(eb_path)
@@ -73,12 +60,11 @@ class ModuleGeneratorTest(TestCase):
         self.eb = EasyBlock(eb_full_path)
         self.modgen = ModuleGenerator(self.eb)
         self.modgen.app.installdir = tempfile.mkdtemp(prefix='easybuild-modgen-test-')
-        self.cwd = os.getcwd()
 
     def tearDown(self):
         """cleanup"""
+        super(ModuleGeneratorTest, self).tearDown()
         os.remove(self.eb.logfile)
-        os.chdir(self.cwd)
         shutil.rmtree(self.modgen.app.installdir)
 
     def test_descr(self):
@@ -93,7 +79,7 @@ class ModuleGeneratorTest(TestCase):
             "    }",
             "}",
             "",
-            "module-whatis {%s}" % gzip_txt,
+            "module-whatis {Description: %s}" % gzip_txt,
             "",
             "set root    %s" % self.modgen.app.installdir,
             "",
@@ -106,20 +92,32 @@ class ModuleGeneratorTest(TestCase):
 
     def test_load(self):
         """Test load part in generated module file."""
-        expected = """
-if { ![is-loaded mod_name] } {
-    module load mod_name
-}
-"""
-        self.assertEqual(expected, self.modgen.load_module("mod_name"))
+        expected = [
+            "",
+            "if { ![is-loaded mod_name] } {",
+            "    module load mod_name",
+            "}",
+            "",
+        ]
+        self.assertEqual('\n'.join(expected), self.modgen.load_module("mod_name"))
+
+        # with recursive unloading: no if is-loaded guard
+        expected = [
+            "",
+            "module load mod_name",
+            "",
+        ]
+        self.assertEqual('\n'.join(expected), self.modgen.load_module("mod_name", recursive_unload=True))
 
     def test_unload(self):
         """Test unload part in generated module file."""
-        expected = """
-if { [is-loaded mod_name] } {
-    module unload mod_name
-}
-"""
+        expected = '\n'.join([
+            "",
+            "if { [is-loaded mod_name] } {",
+            "    module unload mod_name",
+            "}",
+            "",
+        ])
         self.assertEqual(expected, self.modgen.unload_module("mod_name"))
 
     def test_prepend_paths(self):
@@ -152,6 +150,8 @@ if { [is-loaded mod_name] } {
     def test_module_naming_scheme(self):
         """Test using default module naming scheme."""
         all_stops = [x[0] for x in EasyBlock.get_steps()]
+        init_config(build_options={'valid_stops': all_stops})
+
         ecs_dir = os.path.join(os.path.dirname(__file__), 'easyconfigs')
         ec_files = [os.path.join(subdir, fil) for (subdir, _, files) in os.walk(ecs_dir) for fil in files]
         ec_files = [fil for fil in ec_files if not "v2.0" in fil]  # TODO FIXME: drop this once 2.0 support works
@@ -161,12 +161,13 @@ if { [is-loaded mod_name] } {
             # test default naming scheme
             for ec_file in ec_files:
                 ec_path = os.path.abspath(ec_file)
-                ec = EasyConfig(ec_path, validate=False, valid_stops=all_stops)
+                ec = EasyConfig(ec_path, validate=False)
                 # derive module name directly from easyconfig file name
                 ec_name = '.'.join(ec_file.split(os.path.sep)[-1].split('.')[:-1])  # cut off '.eb' end
                 mod_name = ec_name.split('-')[0]  # get module name (assuming no '-' is in software name)
                 mod_version = '-'.join(ec_name.split('-')[1:])  # get module version
-                self.assertEqual(os.path.join(mod_name, mod_version), det_full_module_name(ec))
+                full_mod_name = det_full_module_name(ec)
+                self.assertEqual(os.path.join(mod_name, mod_version), full_mod_name)
 
         test_default()
 
@@ -188,13 +189,13 @@ if { [is-loaded mod_name] } {
         reload(easybuild)
         reload(easybuild.tools)
         reload(easybuild.tools.module_naming_scheme)
-        orig_module_naming_scheme = config.get_module_naming_scheme()
-        config.variables['module_naming_scheme'] = 'TestModuleNamingScheme'
+        orig_module_naming_scheme = os.environ.get('EASYBUILD_MODULE_NAMING_SCHEME', None)
+        os.environ['EASYBUILD_MODULE_NAMING_SCHEME'] = 'TestModuleNamingScheme'
         mns_path = "easybuild.tools.module_naming_scheme.test_module_naming_scheme"
         mns_mod = __import__(mns_path, globals(), locals(), [''])
         test_mnss = dict([(x.__name__, x) for x in get_subclasses(mns_mod.ModuleNamingScheme)])
         easybuild.tools.module_naming_scheme.AVAIL_MODULE_NAMING_SCHEMES.update(test_mnss)
-
+        init_config()
 
         ec2mod_map = {
             'GCC-4.6.3': 'GCC/4.6.3',
@@ -203,22 +204,24 @@ if { [is-loaded mod_name] } {
             'gzip-1.5-goolf-1.4.10': 'gnu/openmpi/gzip/1.5',
             'gzip-1.5-ictce-4.1.13': 'intel/intelmpi/gzip/1.5',
             'toy-0.0': 'toy/0.0',
+            'toy-0.0-multiple': 'toy/0.0',  # test module naming scheme ignores version suffixes
         }
 
         # test custom naming scheme
         for ec_file in ec_files:
             ec_path = os.path.abspath(ec_file)
-            ec = EasyConfig(ec_path, validate=False, valid_stops=all_stops)
+            ec = EasyConfig(ec_path, validate=False)
             # derive module name directly from easyconfig file name
             ec_name = '.'.join(ec_file.split(os.path.sep)[-1].split('.')[:-1])  # cut off '.eb' end
-            self.assertEqual(ec2mod_map[ec_name], det_full_module_name(ec))
-
-        # generating module name from non-parsed easyconfig does not work (and shouldn't)
-        error_msg = "Can not ensure correct module name generation for non-parsed easyconfig specifications."
-        self.assertErrorRegex(EasyBuildError, error_msg, det_full_module_name, non_parsed)
+            if ec_name in ec2mod_map:
+                self.assertEqual(ec2mod_map[ec_name], det_full_module_name(ec))
 
         # restore default module naming scheme, and retest
-        config.variables['module_naming_scheme'] = orig_module_naming_scheme
+        if orig_module_naming_scheme is not None:
+            os.environ['EASYBUILD_MODULE_NAMING_SCHEME'] = orig_module_naming_scheme
+        else:
+            del os.environ['EASYBUILD_MODULE_NAMING_SCHEME']
+        init_config()
         test_default()
 
     def test_mod_name_validation(self):
@@ -250,4 +253,6 @@ def suite():
 
 
 if __name__ == '__main__':
+    #logToScreen(enable=True)
+    #setLogLevelDebug()
     main()

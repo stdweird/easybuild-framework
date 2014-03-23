@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2013 Ghent University
+# Copyright 2013-2014 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,10 +28,19 @@ This describes the easyconfig format version 1.X
 This is the original pure python code, to be exec'ed rather then parsed
 
 @author: Stijn De Weirdt (Ghent University)
+@author: Kenneth Hoste (Ghent University)
 """
+
+import os
+import re
+import tempfile
+from vsc import fancylogger
 
 from easybuild.framework.easyconfig.format.pyheaderconfigobj import EasyConfigFormatConfigObj
 from easybuild.framework.easyconfig.format.version import EasyVersion
+
+
+_log = fancylogger.getLogger('easyconfig.format.one', fname=False)
 
 
 class FormatOneZero(EasyConfigFormatConfigObj):
@@ -48,21 +57,25 @@ class FormatOneZero(EasyConfigFormatConfigObj):
         # minimal checks
         self._validate_pyheader()
 
-    def get_config_dict(self, version=None, toolchain_name=None, toolchain_version=None):
+    def get_config_dict(self):
         """
         Return parsed easyconfig as a dictionary, based on specified arguments.
         This is easyconfig format 1.x, so there is only one easyconfig instance available.
         """
+        spec_version = self.specs.get('version', None)
+        spec_tc = self.specs.get('toolchain', {})
+        spec_tc_name = spec_tc.get('name', None)
+        spec_tc_version = spec_tc.get('version', None)
         cfg = self.pyheader_localvars
-        if version is not None and not version == cfg['version']:
-            self.log.error('Requested version %s not available, only %s' % (version, cfg['version']))
+        if spec_version is not None and not spec_version == cfg['version']:
+            self.log.error('Requested version %s not available, only %s' % (spec_version, cfg['version']))
 
         tc_name = cfg['toolchain']['name']
         tc_version = cfg['toolchain']['version']
-        if toolchain_name is not None and not toolchain_name == tc_name:
-            self.log.error('Requested toolchain name %s not available, only %s' % (toolchain_name, tc_name))
-        if toolchain_version is not None and not toolchain_version == tc_version:
-            self.log.error('Requested toolchain version %s not available, only %s' % (toolchain_version, tc_version))
+        if spec_tc_name is not None and not spec_tc_name == tc_name:
+            self.log.error('Requested toolchain name %s not available, only %s' % (spec_tc_name, tc_name))
+        if spec_tc_version is not None and not spec_tc_version == tc_version:
+            self.log.error('Requested toolchain version %s not available, only %s' % (spec_tc_version, tc_version))
 
         return cfg
 

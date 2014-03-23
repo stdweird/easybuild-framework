@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2013 Ghent University
+# Copyright 2012-2014 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,32 +29,33 @@ Unit tests for talking to GitHub.
 """
 
 import os
-from unittest import TestCase, TestLoader, main
-
+from test.framework.utilities import EnhancedTestCase
+from unittest import TestLoader, main
 
 from easybuild.tools.github import Githubfs
+
 
 # the user who's repo to test
 GITHUB_USER = "hpcugent"
 # the repo of this user to use in this test
 GITHUB_REPO = "testrepository"
 # Github username (optional)
-GITHUB_LOGIN = None
+GITHUB_LOGIN = os.environ.get('EASYBUILD_GITHUB_LOGIN', None)
 # Github password (optional)
 GITHUB_PASSWORD = None
 # github auth token to use (optional)
-GITHUB_TOKEN = None
+GITHUB_TOKEN = os.environ.get('EASYBUILD_GITHUB_TOKEN', None)
 # branch to test
 GITHUB_BRANCH = 'master'
 
-class GithubTest(TestCase):
+class GithubTest(EnhancedTestCase):
     """ small test for The github package
     This should not be to much, since there is an hourly limit of request
     for non authenticated users of 50"""
 
     def setUp(self):
         """setup"""
-        self.cwd = os.getcwd()
+        super(GithubTest, self).setUp()
         self.ghfs = Githubfs(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH, GITHUB_LOGIN, GITHUB_PASSWORD, GITHUB_TOKEN)
 
     def test_walk(self):
@@ -83,10 +84,6 @@ class GithubTest(TestCase):
             os.remove(fp)
         except (IOError, OSError):
             pass
-
-    def tearDown(self):
-        """cleanup"""
-        os.chdir(self.cwd)
 
 def suite():
     """ returns all the testcases in this module """

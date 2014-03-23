@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # #
-# Copyright 2012-2013 Ghent University
+# Copyright 2012-2014 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ Usage: "python -m test.framework.suite" or "python test/framework/suite.py"
 """
 import glob
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -44,21 +45,40 @@ import test.framework.easyblock as b
 import test.framework.easyconfig as e
 import test.framework.easyconfigparser as ep
 import test.framework.easyconfigformat as ef
+import test.framework.ebconfigobj as ebco
 import test.framework.easyconfigversion as ev
 import test.framework.filetools as f
+import test.framework.format_convert as f_c
 import test.framework.github as g
 import test.framework.license as l
 import test.framework.module_generator as mg
 import test.framework.modules as m
+import test.framework.modulestool as mt
 import test.framework.options as o
+import test.framework.parallelbuild as p
 import test.framework.repository as r
 import test.framework.robot as robot
+import test.framework.run as run
 import test.framework.systemtools as s
 import test.framework.toolchain as tc
 import test.framework.toolchainvariables as tcv
 import test.framework.toy_build as t
 import test.framework.variables as v
 
+
+# make sure temporary files can be created/used
+fd, fn = tempfile.mkstemp()
+os.close(fd)
+os.remove(fn)
+testdir = tempfile.mkdtemp()
+for test_fn in [fn, os.path.join(testdir, 'test')]:
+    try:
+        open(fn, 'w').write('test')
+    except IOError, err:
+        sys.stderr.write("ERROR: Can't write to temporary file %s, set $TMPDIR to a writeable directory (%s)" % (fn, err))
+        sys.exit(1)
+os.remove(fn)
+shutil.rmtree(testdir)
 
 # initialize logger for all the unit tests
 fd, log_fn = tempfile.mkstemp(prefix='easybuild-tests-', suffix='.log')
@@ -70,7 +90,7 @@ log.setLevelName('DEBUG')
 
 # call suite() for each module and then run them all
 # note: make sure the options unit tests run first, to avoid running some of them with a readily initialized config
-tests = [o, r, ef, ev, ep, e, mg, m, f, a, robot, b, v, g, tcv, tc, t, c, s, l]
+tests = [o, r, ef, ev, ebco, ep, e, mg, m, mt, f, run, a, robot, b, v, g, tcv, tc, t, c, s, l, f_c]
 SUITE = unittest.TestSuite([x.suite() for x in tests])
 
 # uses XMLTestRunner if possible, so we can output an XML file that can be supplied to Jenkins

@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2013 Ghent University
+# Copyright 2012-2014 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,38 +30,29 @@ Unit tests for modules.py.
 @author: Stijn De Weirdt (Ghent University)
 """
 
-import copy
 import os
 import re
 import tempfile
 import shutil
+from test.framework.utilities import EnhancedTestCase
+from unittest import TestLoader, main
 
-import easybuild.tools.options as eboptions
-from easybuild.tools import config
-from easybuild.tools.environment import modify_env
-from easybuild.tools.modules import modules_tool
-from unittest import TestCase, TestLoader, main
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir, modules_tool
 
 
 # number of modules included for testing purposes
-TEST_MODULES_COUNT = 29
+TEST_MODULES_COUNT = 34
 
 
-class ModulesTest(TestCase):
+class ModulesTest(EnhancedTestCase):
     """Test cases for modules."""
 
     def setUp(self):
         """set up everything for a unit test."""
-        # keep track of original environment, so we can restore it
-        self.orig_environ = copy.deepcopy(os.environ)
+        super(ModulesTest, self).setUp()
 
-        # initialize configuration so config.get_modules_tool function works
-        eb_go = eboptions.parse_options()
-        config.init(eb_go.options, eb_go.get_options_by_section('config'))
-
-        self.cwd = os.getcwd()
         self.orig_modulepaths = os.environ.get('MODULEPATH', '').split(os.pathsep)
-
         self.testmods = None
 
         # purge with original $MODULEPATH before running each test
@@ -184,13 +175,64 @@ class ModulesTest(TestCase):
         self.testmods.purge()
         self.assertTrue(len(self.testmods.loaded_modules()) == 0)
 
+    def test_get_software_root_version_libdir(self):
+        """Test get_software_X functions."""
+
+        tmpdir = tempfile.mkdtemp()
+        test_cases = [
+            ('GCC', 'GCC'),
+            ('grib_api', 'GRIB_API'),
+            ('netCDF-C++', 'NETCDFMINCPLUSPLUS'),
+            ('Score-P', 'SCOREMINP'),
+        ]
+        for (name, env_var_name) in test_cases:
+            # mock stuff that get_software_X functions rely on
+            root = os.path.join(tmpdir, name)
+            os.makedirs(os.path.join(root, 'lib'))
+            os.environ['EBROOT%s' % env_var_name] = root
+            version = '0.0-%s' % root
+            os.environ['EBVERSION%s' % env_var_name] = version
+
+            self.assertEqual(get_software_root(name), root)
+            self.assertEqual(get_software_version(name), version)
+            self.assertEqual(get_software_libdir(name), 'lib')
+
+            os.environ.pop('EBROOT%s' % env_var_name)
+            os.environ.pop('EBVERSION%s' % env_var_name)
+
+        # check expected result of get_software_libdir with multiple lib subdirs
+        root = os.path.join(tmpdir, name)
+        os.makedirs(os.path.join(root, 'lib64'))
+        os.environ['EBROOT%s' % env_var_name] = root
+        self.assertErrorRegex(EasyBuildError, "Multiple library subdirectories found.*", get_software_libdir, name)
+        self.assertEqual(get_software_libdir(name, only_one=False), ['lib', 'lib64'])
+
+        # only directories containing files in specified list should be retained
+        open(os.path.join(root, 'lib64', 'foo'), 'w').write('foo')
+        self.assertEqual(get_software_libdir(name, fs=['foo']), 'lib64')
+
+        # clean up for previous tests
+        os.environ.pop('EBROOT%s' % env_var_name)
+
+        # if root/version for specified software package can not be found, these functions should return None
+        self.assertEqual(get_software_root('foo'), None)
+        self.assertEqual(get_software_version('foo'), None)
+        self.assertEqual(get_software_libdir('foo'), None)
+
+        # if no library subdir is found, get_software_libdir should return None
+        os.environ['EBROOTFOO'] = tmpdir
+        self.assertEqual(get_software_libdir('foo'), None)
+        os.environ.pop('EBROOTFOO')
+
+        shutil.rmtree(tmpdir)
+
     def tearDown(self):
         """cleanup"""
-        os.chdir(self.cwd)
+        super(ModulesTest, self).tearDown()
+
         os.environ['MODULEPATH'] = os.pathsep.join(self.orig_modulepaths)
         # reinitialize a modules tool, to trigger 'module use' on module paths
         modules_tool()
-        modify_env(os.environ, self.orig_environ)
 
 def suite():
     """ returns all the testcases in this module """
